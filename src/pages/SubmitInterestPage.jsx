@@ -94,8 +94,8 @@ export default function SubmitInterestPage() {
     setBankLookup({ status: 'loading', message: 'Looking up institution…' })
     try {
       const bank = await getBankByFdic(fdicCertNumber)
-      setValues((current) => ({ ...current, legal_name: bank.bank_name }))
-      setBankLookup({ status: 'found', message: `Matched: ${bank.bank_name}` })
+      setValues((current) => ({ ...current, legal_name: bank.legal_name }))
+      setBankLookup({ status: 'found', message: `Matched: ${bank.legal_name}` })
     } catch {
       setBankLookup({ status: 'error', message: 'No institution found for that FDIC certificate number. You can still enter details manually.' })
     }
