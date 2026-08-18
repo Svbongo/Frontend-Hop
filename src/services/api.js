@@ -20,6 +20,7 @@ const jsonOptions = (method, data) => ({
 
 export const getCase = (caseId) => request(`/api/cases/${caseId}`)
 export const submitInterest = (data) => request('/api/public/submit-interest', jsonOptions('POST', data))
+export const getBankByFdic = (fdicCertNumber) => request(`/api/public/banks/${fdicCertNumber}`)
 export const createDevCase = (data) => request('/api/dev/create-case', jsonOptions('POST', data))
 export const resetDevCase = (caseId) => request(`/api/dev/reset-case/${caseId}`, { method: 'POST' })
 export const createDevClarification = (caseId, data) => request(`/api/dev/cases/${caseId}/hazel-review/clarification`, jsonOptions('POST', data))

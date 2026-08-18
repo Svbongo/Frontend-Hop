@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Button from '../components/Button'
 import StatusBadge from '../components/StatusBadge'
-import { submitInterest } from '../services/api'
+import { submitInterest, getBankByFdic } from '../services/api'
 
 const INITIAL_VALUES = {
   legal_name: 'Northstar Community Bank, N.A.',
@@ -52,15 +52,17 @@ function validate(values) {
   return errors
 }
 
-function InterestField({ field, value, error, onChange }) {
+function InterestField({ field, value, error, onChange, onBlur, statusMessage, statusTone }) {
   const hintId = field.hint ? `${field.name}-hint` : undefined
   const errorId = `${field.name}-error`
+  const statusId = statusMessage ? `${field.name}-status` : undefined
   return <div className={`field ${error ? 'has-error' : ''}`}>
     <label htmlFor={field.name}>{field.label} <span className="required" aria-hidden="true">*</span></label>
     {field.hint && <p className="hint" id={hintId}>{field.hint}</p>}
     {field.type === 'select' ? <select className="input" id={field.name} name={field.name} value={value} onChange={onChange} required aria-describedby={errorId}>
       {INSTITUTION_TYPES.map((option) => <option key={option}>{option}</option>)}
-    </select> : <input className="input" id={field.name} name={field.name} type={field.type} value={value} onChange={onChange} required autoComplete={field.autoComplete} inputMode={field.inputMode} aria-describedby={[hintId, errorId].filter(Boolean).join(' ')} aria-invalid={error ? 'true' : undefined} />}
+    </select> : <input className="input" id={field.name} name={field.name} type={field.type} value={value} onChange={onChange} onBlur={onBlur} required autoComplete={field.autoComplete} inputMode={field.inputMode} aria-describedby={[hintId, errorId, statusId].filter(Boolean).join(' ')} aria-invalid={error ? 'true' : undefined} />}
+    {statusMessage && <p className={`field-status ${statusTone || ''}`} id={statusId}>{statusMessage}</p>}
     {error && <p className="field-error" id={errorId}>{error}</p>}
   </div>
 }
@@ -77,11 +79,26 @@ export default function SubmitInterestPage() {
   const [requestError, setRequestError] = useState('')
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState(null)
+  const [bankLookup, setBankLookup] = useState({ status: 'idle', message: '' })
 
   const update = (event) => {
     const { name, value } = event.target
     setValues((current) => ({ ...current, [name]: value }))
     setErrors((current) => ({ ...current, [name]: '' }))
+    if (name === 'fdic_certificate_number') setBankLookup({ status: 'idle', message: '' })
+  }
+
+  async function lookupBank(event) {
+    const fdicCertNumber = event.target.value.trim()
+    if (!/^\d{1,10}$/.test(fdicCertNumber)) return
+    setBankLookup({ status: 'loading', message: 'Looking up institution…' })
+    try {
+      const bank = await getBankByFdic(fdicCertNumber)
+      setValues((current) => ({ ...current, legal_name: bank.bank_name }))
+      setBankLookup({ status: 'found', message: `Matched: ${bank.bank_name}` })
+    } catch {
+      setBankLookup({ status: 'error', message: 'No institution found for that FDIC certificate number. You can still enter details manually.' })
+    }
   }
 
   function review(event) {
@@ -133,7 +150,7 @@ export default function SubmitInterestPage() {
   return <div className="auth public-interest"><main className="auth-card" id="main">
     <p className="eyebrow">For regulated institutions</p><h1>Express interest</h1><p className="lead">Send Hazel the core institution and representative details needed to review your inquiry. This does not create a portal account.</p>
     {Object.keys(errors).length > 0 && <div className="error-summary" role="alert"><h2>There is a problem</h2><ul>{Object.entries(errors).map(([name, message]) => <li key={name}><a href={`#${name}`}>{message}</a></li>)}</ul></div>}
-    <form className="interest-form" onSubmit={review} noValidate><div className="form-grid">{FIELDS.map((field) => <InterestField key={field.name} field={field} value={values[field.name]} error={errors[field.name]} onChange={update} />)}
+    <form className="interest-form" onSubmit={review} noValidate><div className="form-grid">{FIELDS.map((field) => <InterestField key={field.name} field={field} value={values[field.name]} error={errors[field.name]} onChange={update} onBlur={field.name === 'fdic_certificate_number' ? lookupBank : undefined} statusMessage={field.name === 'fdic_certificate_number' ? bankLookup.message : undefined} statusTone={field.name === 'fdic_certificate_number' ? bankLookup.status : undefined} />)}
       <div className="field span-2"><label htmlFor="reason_for_interest">Reason for interest <span className="muted small">Optional</span></label><textarea className="input" id="reason_for_interest" name="reason_for_interest" value={values.reason_for_interest} onChange={update} autoComplete="off" /></div>
     </div><div className="actions"><Button>Submit interest</Button></div><p className="submission-note">Required fields are marked with an asterisk. Local development only—submission creates a synthetic Hazel case.</p></form>
   </main></div>
